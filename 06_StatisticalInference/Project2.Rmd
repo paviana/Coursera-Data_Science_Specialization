@@ -1,0 +1,52 @@
+---
+title: "Statistical Inference Peer Assessment - Part 2"
+author: "Paulo Viana"
+output: 
+    pdf_document:
+        fig_width: 9
+---
+
+In the second part of the assessment we will analyze the ToothGrowth dataset. The dataset show the effect of vitamin C on tooth growth in guinea pigs, and is described as "the response is the length of odontoblasts (teeth) in each of 10 guinea pigs at each of three dose levels of Vitamin C (0.5, 1, and 2 mg) with each of two delivery methods (orange juice or ascorbic acid)".
+
+The first step is to load the dataset and do some exploratory analysis.
+
+```{r}
+library(ggplot2)
+data(ToothGrowth)
+
+g <- ggplot(ToothGrowth, aes(x = dose, y = len)) + 
+    xlab('Dose (mg)') + ylab('Tooth Length') +
+    geom_point(aes(colour = supp)) +
+    scale_colour_discrete(name = 'Supplement Type', 
+                          breaks = c('VC', 'OJ'), 
+                          labels = c('Ascorbic Acid (VC)', 'Orange Juice (OJ)'))
+    
+
+g + stat_smooth(method='lm') +
+    ggtitle('Tooth Growth per Vitamin C Dose')
+```
+
+```{r}
+g + stat_smooth(aes(group = supp, colour = supp), method='lm') +
+    facet_grid(. ~ supp) + ggtitle('Tooth Growth per Supplement Type') 
+```
+
+Both graphs show a clear positive correlation between the vitamin C intake and the tooth length, for both methods. Let's examine this relation more closely.
+
+```{r}
+fit.supp <- lm(len ~ dose + supp, data = ToothGrowth)
+
+summary(fit.supp)
+```
+
+We'll begin taking a look at the coefficients. The intercept states that the average value of tooth length for pigs not taking any form of vitamin C is $`r fit.supp$coefficients[1]`$. The second, dose, points that the average increase in tooth length per increased $mg$ of vitamin intake, *ceteris paribus*, is $`r fit.supp$coefficients[2]`$ units. The last, suppVC, relates to the difference of the tooth length averages for each supplement. This means that, all else equal, the average tooth length for a pig receiving ascorbic acid will be $`r abs(fit.supp$coefficients[3])`$ units smaller than the average length for a pig receiving the same dosage of orange juice.
+
+The coefficient of determination $R^2$ is equal to $`r summary(fit.supp)$r.squared`$ indicating that our model explains approximately $70\%$ of the variation of the data. The p-values are $< 0.05$, so we can accept the hypothesis that the supplements are reponsible for the tooth growth of the pigs.
+
+Our last step is to check our confidence intervals: 
+
+```{r}
+confint(fit.supp)
+```
+
+If we collect new data and repeat the simulations, the coefficients will be within these bounds $95\%$ of the time.

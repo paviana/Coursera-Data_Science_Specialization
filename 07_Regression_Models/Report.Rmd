@@ -1,0 +1,108 @@
+---
+title: "Analysis of Transmission Type on Fuel Consumption"
+output: pdf_document        
+---
+
+In this report we will analyze the fuel consumption os 32 vehicles contained in the `mtcars` dataset. This data was extracted from the 1974 *Motor Trend US* magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973-74 models). Our main questions are to explore the relationship between fuel consumption and car transmission, defined as 'automatic' or 'manual', and quantify this relation (if it exists).
+
+The mains conclusion from the analysis below are the following:
+
+- `Manual` transmission are 1.8 times more efficient than an `Automatic` transmission;
+
+- The transmission type is not the most important factor to analyze fuel consumption.  
+
+```{r}
+suppressMessages(require(magrittr))
+```
+
+## Data Processing
+
+The `mtcars` dataset is already presented in a structured way, so our only task here is to load the dataset and define which columns will be treated as qualitative variables in the analysis.
+
+```{r}
+data(mtcars)
+mtcars$am %<>% factor(levels = c(0,1), labels = c('Automatic', 'Manual'))
+mtcars$carb %<>% as.factor; mtcars$cyl %<>% as.factor
+mtcars$gear %<>% as.factor; mtcars$vs %<>% as.factor
+```
+
+
+## Hypothesis Test
+
+Let's first begin with a simple question: does the type transmission have a visible effect in the mpg value? Assuming the data comes from a normal distribution, we use a t test to determine if the two types of transmission are significantly different from each other regarding fuel consumption, or if we should accept accept the null hypothesis $H_0$ and declare that there's no distinction among them.  
+
+```{r}
+fit.base <- lm(mpg ~ am, mtcars); t.value <- t.test(mpg ~ am, mtcars)
+```
+
+Since the p-value for the t test is `r round(t.value$p.value, 5)`, below the $0.05$ limit for a 95% confidence interval, we reject the null hypothesis. We also find that cars with manual transmissions can travel on average `r fit.base$coefficients[2] %>% round(digits=3)` miles more than cars with automatic transmission with a fuel gallon (figure 2). The $R^2$ value of `r {summary(fit.base) %$% r.squared*100} %>% round`% for this model indicates that despite the fit the model doesn't does a good job at predicting the fuel consumption.
+
+## Model Analysis
+
+Having rejected the null hypothesis, we now examine the remaining variables of the dataset for possible confounders. The pairs plot (figure 1) points us to other variables that seem to have a high correlation with `mpg`. To perform this test we will generate several models with different inputs, starting from a model that contains all the predictors, and measure their relative qualities through the application of the `AIC` criterion.  
+
+```{r, results='hide'}
+fit.best <- lm(mpg ~ ., mtcars) %>% step 
+```
+
+The new model contains the variables `cyl`, `hp`, `wt`, plus `am`. The first thing to note is the huge improvement in the $R^2$ value, now at `r {summary(fit.best) %$% r.squared*100} %>% round`%. Applying the `anova` to the two models presents us a F-statistic of `r anova(fit.base, fit.best)$F[2] %>% round(digits=3)`, indicating that the added variables contribute to the accuracy of the model. The complete details of new model are presented below.
+
+```{r}
+summary(fit.best)
+```
+
+## Residuals Analysis
+
+In this last section we shall study the residuals of the regression analysis. From the top left plot of figure 3 we can observe that there is no noticeable pattern in the residuals, which indicates a good fit. The Q-Q plot (top right) and the Scale-Location plot we see that the residuals are normally distributed (with a constant variance), although some outliers can be seem. Finally, the leverage plot show the presence of some high leverage points.     
+
+## Conclusions
+
+After our analysis we can conclude the following:
+
+1. For constant values of `cyl`, `hp`, and `wt`, cars with `Manual` are approximately `1.8` more efficient (on average) than cars with `Automatic` transmission.
+
+2. In the presence of other variables, the `am` type `is not` the main influence in the fuel consumption of a car (p-value of `r summary(fit.best)$coefficients[6,4] %>% round(digits=3)`).
+
+3. `hp` is not a significant factor regarding fuel consumption.
+
+4. Adjusted by `hp`, and `am`, the most significant factors regarding fuel consumption are `cyl` and `wt`.
+
+
+\newpage
+
+## Appendix
+
+### Figure 1
+
+```{r, fig.width=12, fig.height=14}
+palette(c('red', 'blue')); par(xpd = TRUE) 
+pairs(mtcars[, -9], col=mtcars$am, bg=mtcars$am, pch=21, oma=c(4,4,16,4))
+legend(x='topright', legend=levels(mtcars$am), horiz=TRUE, 
+       pt.bg=palette(), pch=21)
+```
+
+\newpage
+
+### Figure 2
+
+```{r, fig.width=6, fig.height=4}
+boxplot(mpg ~ am, mtcars, col=palette(), horizontal=TRUE,
+        main='Mpg per Transmission Type', 
+        xlab='Miles/(US) gallon')  
+
+d1 <- density(subset(mtcars, am == 'Automatic')$mpg)
+d2 <- density(subset(mtcars, am == 'Manual')$mpg)
+plot(d1, col=palette()[1], xlim=range(d1$x, d2$x), ylim=range(d1$y, d2$y), 
+     main='', xlab='Miles/(US) gallon'); lines(d2, col=palette()[2])
+legend('topright', c('Automatic', 'Manual'), 
+       lty=c(1,1), lwd=c(2.5,2.5),col=palette())
+```
+
+\newpage
+
+### Figure 3
+
+```{r, fig.height=7, fig.width=7}
+par(mfrow=c(2, 2))
+plot(fit.best)
+```
